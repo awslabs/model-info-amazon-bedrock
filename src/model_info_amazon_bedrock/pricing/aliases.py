@@ -5,10 +5,11 @@ This module provides static mappings for cases where algorithmic matching fails:
 Mostly in cases where the word ordering is materially different between the
 pricing API and model IDs.
 
-To update: run the integration tests and check which models produce warnings.
-Cross-reference the failing model IDs with the unmatched pricing segments
-(visible via UsagetypeMapper.parse_usagetype on raw entries) or servicenames
-(visible in the fetched marketplace data keys).
+To update: run the integration tests with `--target-regions` for the affected
+Region(s) and check which models produce warnings. Cross-reference the failing
+model IDs with the unmatched pricing segments (visible via
+UsagetypeMapper.parse_usagetype on raw entries) or servicenames (visible in the
+fetched marketplace data keys).
 """
 
 # ---------------------------------------------------------------------------

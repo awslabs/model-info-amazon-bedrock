@@ -4,7 +4,16 @@ import pytest
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add snapshot options before pytest parses CLI arguments."""
+    """Add all test options at root level before pytest parses CLI arguments."""
+    parser.addoption(
+        "--target-regions",
+        default=None,
+        metavar="SELECTORS",
+        help=(
+            "Comma-separated AWS Region names or fnmatchcase-compatible selectors "
+            "(e.g. 'us-*') for integration tests (default: us-east-1)."
+        ),
+    )
     parser.addoption(
         "--update-snapshots",
         action="store_true",

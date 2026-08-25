@@ -93,19 +93,27 @@ The project uses [pytest](https://docs.pytest.org/en/) for testing.
 # Run unit tests (⚠️ excludes integration tests by default, per pyproject.toml)
 uv run pytest
 
-# Run integration & snapshot tests (requires configured AWS IAM credentials)
+# Run integration & snapshot tests in the default us-east-1 Region:
+# (requires configured AWS IAM credentials)
 uv run pytest -m integration
 ```
 
-The integration tests check current pricing coverage against live model lists (across base Bedrock models, system-defined/cross-Region inference profiles, and OpenAI-compatible model APIs).
+Change which AWS Region(s) to run integration tests against with the `--target-regions` argument, which supports comma-separated exact Region names or quoted [`fnmatchcase`](https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatchcase)-compatible selectors. For example:
+
+```bash
+# Multiple exact Regions and/or selectors (quote shell wildcards)
+uv run pytest -m integration --target-regions 'us-east-1,eu-*'
+```
+
+For each selected Region, the integration tests check current pricing coverage against live model lists (base Bedrock models, system-defined/cross-Region inference profiles, and OpenAI-compatible model APIs).
 
 Models without matched pricing are reported as **warnings** rather than failures at this time, as some are still known to be missing. These tests help identify coverage gaps; they do not establish that every matched price is correct.
 
 #### Snapshot Tests
 
-The **snapshot** tests maintain a developer-local (git ignored) state of previous prices resolved for each model ID, which helps guard against any unintentional changes to price resolution/matching behaviour across the catalog. 
+The **snapshot** tests maintain a developer-local (git ignored) state of previous prices resolved for each model ID and Region, which helps guard against any unintentional changes to price resolution/matching behaviour across the catalog.
 
-To deliberately update the saved snapshot, instead of comparing against it and failing on differences, run:
+To deliberately update the saved snapshots, instead of comparing against them and failing on differences, run:
 
 ```bash
 # To allow *only* model additions or removals (changed prices still error):
@@ -115,7 +123,7 @@ uv run pytest -m integration --update-snapshots
 uv run pytest -m integration --update-snapshots --allow-snapshot-price-changes
 ```
 
-Every accepted update records the *new* snapshot under `tests/integration/snapshots/history/<snapshot-name>/<UTC timestamp>.csv`, then overwrites the same contents to the canonical CSV in `tests/integration/snapshots`.
+Each selected `--target-region` maintains independent canonical snapshots. Every accepted update records the *new* snapshot under `tests/integration/snapshots/history/<snapshot-name-incl-region>/<UTC timestamp>.csv`, then overwrites the same contents to the canonical CSV in `tests/integration/snapshots`.
 
 > ⚠️ This means historical record-keeping is at generation time, not overwrite time: If you clear your `history/` folder and run an update, there'll be no separate record kept of what the previous version of the snapshot was.
 
@@ -123,7 +131,7 @@ You can compare historical versions using `diff -u` or an equivalent CSV-aware d
 
 ### Updating and Debugging Price Resolutions
 
-We provide an agent skill (see [.agents/skills/pricing-snapshot-refresh/SKILL.md](.agents/skills/pricing-snapshot-refresh/SKILL.md)) to help accelerate refreshing pricing data and debugging matching errors, but if working manually you can also refer to that or the shorter guidance here:
+We provide an agent skill (see [`.agents/skills/update-debug-pricing/SKILL.md`](.agents/skills/update-debug-pricing/SKILL.md)) to help accelerate refreshing pricing data and debugging matching errors, but if working manually you can also refer to that or the shorter guidance here:
 
 The git ignored `data/` directory can be populated with local diagnostic copies of AWS Price List API responses, via our `dump_pricing` helper script:
 

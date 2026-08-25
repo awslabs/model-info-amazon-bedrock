@@ -6,11 +6,16 @@ stored snapshot and fail if the output has changed — helping detect unintended
 logic changes that alter pricing results.
 
 Snapshot files and their local history are gitignored because they contain
-derived pricing data that should not be checked in.
+derived pricing data that should not be checked in. Tests run once per Region
+selected by --target-regions.
 
 Usage:
     # First run, or add/remove models while retaining the previous local baseline.
     pytest tests/integration/test_pricing_snapshot.py -m integration --update-snapshots
+
+    # Compare multiple Region baselines.
+    pytest tests/integration/test_pricing_snapshot.py -m integration \
+        --target-regions 'us-west-2,eu-*'
 
     # Permit reviewed changes to prices for IDs already in the baseline.
     pytest tests/integration/test_pricing_snapshot.py -m integration \
@@ -215,12 +220,11 @@ def _compare_or_write_snapshot(
 def test_bedrock_foundation_model_pricing_snapshot(
     update_snapshots: bool,
     allow_snapshot_price_changes: bool,
+    target_region: str,
+    boto_session,
 ):
     """Snapshot basic pricing for all Bedrock foundation models."""
-    import boto3  # noqa: PLC0415
-
-    region = "us-east-1"
-    bedrock = boto3.client("bedrock", region_name=region)
+    bedrock = boto_session.client("bedrock", region_name=target_region)
     response = bedrock.list_foundation_models()
 
     model_summaries = response.get("modelSummaries", [])
@@ -229,10 +233,10 @@ def test_bedrock_foundation_model_pricing_snapshot(
     model_ids = [m["modelId"] for m in model_summaries if "modelId" in m]
     assert model_ids, "No model IDs found in Bedrock response"
 
-    pricing_client = BedrockModelInfoClient()
-    current = _build_pricing_table(model_ids, pricing_client, region)
+    pricing_client = BedrockModelInfoClient(session=boto_session)
+    current = _build_pricing_table(model_ids, pricing_client, target_region)
 
-    snapshot_path = SNAPSHOT_DIR / "bedrock_foundation_models.csv"
+    snapshot_path = SNAPSHOT_DIR / f"pricing.models.{target_region}.csv"
     _compare_or_write_snapshot(
         snapshot_path,
         current,
@@ -245,12 +249,11 @@ def test_bedrock_foundation_model_pricing_snapshot(
 def test_inference_profile_pricing_snapshot(
     update_snapshots: bool,
     allow_snapshot_price_changes: bool,
+    target_region: str,
+    boto_session,
 ):
-    """Snapshot basic pricing for all system-defined inference profiles."""
-    import boto3  # noqa: PLC0415
-
-    region = "us-east-1"
-    bedrock = boto3.client("bedrock", region_name=region)
+    """Snapshot basic pricing for system-defined profiles."""
+    bedrock = boto_session.client("bedrock", region_name=target_region)
     response = bedrock.list_inference_profiles(typeEquals="SYSTEM_DEFINED")
 
     profiles = response.get("inferenceProfileSummaries", [])
@@ -261,10 +264,10 @@ def test_inference_profile_pricing_snapshot(
     )
     assert model_ids, "No inference profile IDs found"
 
-    pricing_client = BedrockModelInfoClient()
-    current = _build_pricing_table(model_ids, pricing_client, region)
+    pricing_client = BedrockModelInfoClient(session=boto_session)
+    current = _build_pricing_table(model_ids, pricing_client, target_region)
 
-    snapshot_path = SNAPSHOT_DIR / "inference_profiles.csv"
+    snapshot_path = SNAPSHOT_DIR / f"pricing.profiles.{target_region}.csv"
     _compare_or_write_snapshot(
         snapshot_path,
         current,

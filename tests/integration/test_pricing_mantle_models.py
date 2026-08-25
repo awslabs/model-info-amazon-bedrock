@@ -1,4 +1,4 @@
-"""Integration tests: verify pricing coverage against live Mantle API model list."""
+"""Verify pricing coverage against the live Mantle API model list per --target-region"""
 
 import os
 import warnings
@@ -11,18 +11,21 @@ from model_info_amazon_bedrock import BedrockModelInfoClient, PricingNotFoundErr
 
 
 @pytest.mark.integration
-def test_pricing_coverage_for_mantle_models():
+def test_pricing_coverage_for_mantle_models(
+    target_region: str,
+    boto_session,
+):
     """Fetch model IDs from Mantle API and attempt pricing lookup for each.
 
     Models with no pricing are recorded as warnings, not failures. Missing
     credentials, token generation, connectivity, or live model data fail the
     selected test.
     """
-    region = "us-east-1"
     base_url = os.environ.get(
-        "OPENAI_API_BASE_URL", f"https://bedrock-mantle.{region}.api.aws/v1"
+        "OPENAI_API_BASE_URL",
+        f"https://bedrock-mantle.{target_region}.api.aws/v1",
     )
-    api_key = os.environ.get("OPENAI_API_KEY") or provide_token(region=region)
+    api_key = os.environ.get("OPENAI_API_KEY") or provide_token(region=target_region)
     assert base_url, "Mantle API base URL is empty"
     assert api_key, "Mantle API credentials are empty"
 
@@ -32,12 +35,16 @@ def test_pricing_coverage_for_mantle_models():
     model_ids = [model.id for model in models_response]
     assert model_ids, "No models returned from Mantle API"
 
-    pricing_client = BedrockModelInfoClient()
+    pricing_client = BedrockModelInfoClient(session=boto_session)
     models_without_pricing: list[str] = []
 
     for model_id in model_ids:
         try:
-            result = pricing_client.get_model_pricing(model_id, region=region)
+            result = pricing_client.get_model_pricing(
+                model_id,
+                region=target_region,
+            )
+            assert result.region == target_region
             assert len(result.dimensions) > 0, f"Empty pricing for {model_id}"
         except PricingNotFoundError:
             models_without_pricing.append(model_id)

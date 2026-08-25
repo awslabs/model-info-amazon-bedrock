@@ -6,7 +6,7 @@ This repository implements a Python 3.11+ library to simplify fetching informati
 
 - This file is the canonical guidance/steering across different coding assistant tools.
 - CONTRIBUTING.md contains our human developer-facing information, including some notes on the architecture and debugging.
-- Use the `pricing-snapshot-refresh` skill when updating AWS Price List API dumps, refreshing pricing snapshots, or diagnosing unexpected discrepancies in reported model pricing.
+- Use the `update-debug-pricing` skill when updating AWS Price List API dumps, refreshing pricing snapshots, or diagnosing unexpected discrepancies in reported model pricing.
 - We aim to pull all model information (including pricing) from authoritative APIs at run-time. Caching at run-time for performance is okay, but this library avoids distributing internal copies of data in our package unless absolutely necessary and carefully reviewed.
 
 ## Commands quick reference
@@ -17,16 +17,18 @@ We recommend using uv for env management, so you'll usually need to prefix comma
 - Lint: `uv run ruff check`
 - Format: `uv run ruff format`
 - Run unit tests: `uv run pytest`
-- Run integration tests: `uv run pytest -m integration`
+- Run integration tests in the default `us-east-1`: `uv run pytest -m integration`
+- Run every integration test once per matched Region: `uv run pytest -m integration --target-regions 'us-west-2,eu-*'`
+    - Note, `--target-regions` resolves comma-separated `fnmatchcase` selectors against `boto3.Session.get_available_regions("bedrock")`, or defaults to `us-east-1`.
 - Fetch/dump raw pricing data for debugging: `uv run scripts/dump_pricing.py --all-services`
-- Explicitly update snapshot tests (after you verified the changes are expected): `uv run pytest -m integration --update-snapshots`
+- Explicitly update snapshots for the selected Regions after verifying the changes: `uv run pytest -m integration --target-regions <REGIONS> --update-snapshots`
 
 ## Local-only artifacts
 
 The following artifacts are deliberately git ignored and should not be checked in:
 
 - `data/` is used for storing raw price list API data for debugging and development
-- `tests/integration/snapshots/` stores local test snapshots to protect against unexpected price resolution regressions introduced during development.
+- `tests/integration/snapshots/` stores Region-scoped local baselines (`pricing.models.{region}.csv` and `pricing.profiles.{region}.csv`) and timestamped capture history; none should be checked in.
 
 ## Pricing invariants
 

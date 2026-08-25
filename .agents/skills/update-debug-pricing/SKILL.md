@@ -23,13 +23,19 @@ Use this skill when a model reports unresolved '-' prices in testing, a snapshot
 
 Are you just performing a routine refresh, or responding to a particular reported issue?
 
-For a routine refresh, Confirm AWS credentials are read-only or least-privileged, then run the following to run the integration and snapshot tests:
+You MUST establish the exact target Region or selector set first because bare integration commands target only the default `us-east-1`. For any other or multi-Region investigation, you MUST pass the same `--target-regions` value throughout diagnosis, validation, and snapshot updates. The option accepts comma-separated, case-sensitive `fnmatchcase` patterns resolved against available Bedrock Regions and raises a usage error when nothing matches.
+
+For a routine refresh, confirm AWS credentials are read-only or least-privileged, then run the integration and snapshot tests:
 
 ```bash
+# Default Region only (us-east-1)
 uv run pytest -m integration
+
+# Explicit Regions and/or selectors (quote shell wildcards e.g. 'us-west-2,eu-*')
+uv run pytest -m integration --target-regions <REGIONS>
 ```
 
-The output (and reports in `tests/integration/snapshots`) should indicate which models, if any, are missing or unexpectedly changed in pricing since the last snapshot. At the time of writing there are several models for which we don't yet have pricing lookup working, so confirm with the user which one(s) you want to tackle.
+The output and Region-scoped reports in `tests/integration/snapshots` should indicate which models, if any, are missing or unexpectedly changed in pricing since the last snapshot for each selected Region. At the time of writing there are several models for which we don't yet have pricing lookup working, so confirm with the user which one(s) you want to tackle.
 
 If responding to a particular reported issue, you might already have enough context to understand the ask and the expected pricing figures.
 
@@ -93,12 +99,17 @@ When implementing fixes to matching logic:
 Run the focused unit suites for each changed pricing layer, followed by:
 
 ```bash
-# Full unit test suite:
+# Full unit test suite
 uv run pytest
 
-# Integration & snapshot tests:
+# Integration & snapshot tests for the default us-east-1
 uv run pytest -m integration
+
+# Explicit Regions and/or selectors (quote shell wildcards e.g. 'us-west-2,eu-*')
+uv run pytest -m integration --target-regions <REGIONS>
 ```
+
+You MUST reuse the exact Region selection from diagnosis because omitting `--target-regions` validates only `us-east-1`. Never validate one Region set and accept snapshots for another.
 
 Confirm that **only** the intended model behaviours are changed, before moving on to...
 
@@ -106,7 +117,7 @@ Confirm that **only** the intended model behaviours are changed, before moving o
 
 Always confirm with the user before updating test snapshots.
 
-To replace the local snapshot with your updated results after validating that all changes are expected, run:
+To replace the local snapshots with your updated results after validating that all changes are expected, run the applicable command with the same `--target-regions` selection used during diagnosis and validation:
 
 ```bash
 # If you *only* need to add/remove models:
@@ -116,16 +127,18 @@ uv run pytest -m integration --update-snapshots
 uv run pytest -m integration --update-snapshots --allow-snapshot-price-changes
 ```
 
-Always confirm that additions/removals are expected and that every existing-ID price change is
-supported by current source data **before** running `--update-snapshots`.
+Always confirm that additions/removals are expected and that every existing-ID price change is supported by current source data **before** running `--update-snapshots`.
 
-Every accepted snapshot update, as well as updating the canonical file in `tests/integration/snapshots`, saves the new current snapshot under its own capture timestamp:
+Every accepted snapshot update writes the canonical Region-specific file and saves the same contents under its own capture timestamp:
 
 ```text
-tests/integration/snapshots/history/<snapshot-name>/<UTC timestamp>.csv
+tests/integration/snapshots/pricing.models.{region}.csv
+tests/integration/snapshots/pricing.profiles.{region}.csv
+tests/integration/snapshots/history/pricing.models.{region}/{UTC timestamp}.csv
+tests/integration/snapshots/history/pricing.profiles.{region}/{UTC timestamp}.csv
 ```
 
-...So you can also consider referring to previous snapshots (e.g. with `diff -u`), if available, to understand what changed. Repeated accepted runs are retained even when unchanged, so the timestamps record when captures actually occurred.
+You can compare previous snapshots with `diff -u`, if available, to understand what changed. Repeated accepted runs are retained even when unchanged, so the timestamps record when captures actually occurred.
 
 
 ## 7. Final packaging
