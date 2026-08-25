@@ -1,0 +1,43 @@
+[project]
+name = "model-info-amazon-bedrock"
+# Note: version will be automatically set from tag name in our GitHub CD release workflow
+version = "0.0.0"
+authors = [{ name = "Amazon Web Services" }]
+description = "Python wrapper to simplify fetching information about models on Amazon Bedrock - particularly pricing"
+license = { text = "Apache-2.0" }
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = ["boto3"]
+
+[dependency-groups]
+dev = [
+    "aws-bedrock-token-generator>=1",
+    "hypothesis",
+    "openai",
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.urls]
+Repository = "https://github.com/awslabs/model-info-amazon-bedrock"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/model_info_amazon_bedrock"]
+
+[tool.pytest.ini_options]
+addopts = '-m "not integration"'
+markers = ["integration: marks tests requiring integration tests"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "PLC0415"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/model_info_amazon_bedrock/pricing/aliases.py" = ["E501"]

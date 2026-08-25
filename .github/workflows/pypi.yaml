@@ -1,0 +1,51 @@
+name: Publish to PyPI
+
+on:
+  push:
+    # New major & minor releases are disabled here by default for safety. To support
+    # new release lines, add them to the workflow filters:
+    tags:
+      - 'v0.0.*'
+
+permissions:
+  contents: read
+
+jobs:
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/model-info-amazon-bedrock/
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Configure pyproject version
+        run: |
+          if [[ $GITHUB_REF_TYPE == "tag" ]] && [[ $GITHUB_REF_NAME == v* ]]
+          then
+            # Drop leading 'v'
+            uv version --no-sync ${GITHUB_REF_NAME:1}
+          else
+            echo "Invalid tag trigger\nGITHUB_REF_TYPE=${GITHUB_REF_TYPE}\nGITHUB_REF_NAME=${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+      - name: Package project
+        run: uv build
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
