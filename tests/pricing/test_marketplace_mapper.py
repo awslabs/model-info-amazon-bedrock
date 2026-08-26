@@ -2,6 +2,9 @@
 
 import pytest
 
+from model_info_amazon_bedrock._inference_profile_ids import (
+    KnownInferenceProfilePrefix,
+)
 from model_info_amazon_bedrock.pricing.marketplace_mapper import (
     MarketplaceMapper,
     _ModelIdComponents,
@@ -21,7 +24,7 @@ class TestModelIdComponentsParse:
         p = _ModelIdComponents.parse("cohere.command-r")
         assert p.provider == "cohere"
         assert p.model_name == "command-r"
-        assert p.geo == ""
+        assert p.inference_profile_prefix is None
         assert p.date == ""
         assert p.version == ""
         assert p.context == ""
@@ -58,7 +61,7 @@ class TestModelIdComponentsParse:
 
     def test_geo_prefix(self):
         p = _ModelIdComponents.parse("global.anthropic.claude-opus-4-5-20251101-v1:0")
-        assert p.geo == "global"
+        assert p.inference_profile_prefix == KnownInferenceProfilePrefix.GLOBAL
         assert p.provider == "anthropic"
         assert p.model_name == "claude-opus-4-5"
         assert p.date == "20251101"
@@ -66,7 +69,7 @@ class TestModelIdComponentsParse:
 
     def test_us_geo_prefix(self):
         p = _ModelIdComponents.parse("us.anthropic.claude-opus-4-5-20251101-v1:0")
-        assert p.geo == "us"
+        assert p.inference_profile_prefix == KnownInferenceProfilePrefix.US
         assert p.provider == "anthropic"
         assert p.model_name == "claude-opus-4-5"
         assert p.date == "20251101"

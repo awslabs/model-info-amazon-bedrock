@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -82,16 +81,6 @@ def _write_products(path: Path, products: list[dict]) -> None:
     temporary_path.replace(path)
 
 
-def _validate_date_tag(parser: argparse.ArgumentParser, date_tag: str) -> None:
-    """Require the YYYYMMDD date convention used by local pricing history."""
-    if not re.fullmatch(r"\d{8}", date_tag):
-        parser.error("--date must use YYYYMMDD format")
-    try:
-        datetime.strptime(date_tag, "%Y%m%d")
-    except ValueError:
-        parser.error("--date must be a valid calendar date")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Dump AWS Pricing API entries for Bedrock service code(s)."
@@ -132,11 +121,6 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--date",
-        default=datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
-        help="Date tag for --output-dir filenames in YYYYMMDD format.",
-    )
-    parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite an existing output file for the same service and date.",
@@ -151,15 +135,15 @@ def main() -> None:
         parser.error("--output cannot be used with --all-services; use --output-dir")
     if args.output and args.output_dir:
         parser.error("--output and --output-dir are mutually exclusive")
-    _validate_date_tag(parser, args.date)
 
     service_codes = BEDROCK_SERVICE_CODES if args.all_services else (args.service_code,)
     output_dir = args.output_dir or (Path("data") if args.all_services else None)
+    date_tag = datetime.now(UTC).strftime("%Y%m%d")
 
     output_paths: dict[str, Path] = {}
     if output_dir is not None:
         output_paths = {
-            service_code: _dated_output_path(output_dir, service_code, args.date)
+            service_code: _dated_output_path(output_dir, service_code, date_tag)
             for service_code in service_codes
         }
     elif args.output is not None:

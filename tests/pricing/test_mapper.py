@@ -6,6 +6,9 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
+from model_info_amazon_bedrock._inference_profile_ids import (
+    split_known_inference_profile_id,
+)
 from model_info_amazon_bedrock.pricing.mapper import UsagetypeMapper
 from model_info_amazon_bedrock.pricing.types import UsagetypeEntry
 
@@ -83,9 +86,9 @@ def _model_segments(draw: st.DrawFn) -> str:
     if not segment:
         segment = "model.id"
 
-    # Geographic inference profile prefixes are stripped from query model IDs,
-    # so they are not valid literal pricing model segments for this property.
-    assume(not re.match(r"^(us|eu|ap|global)\.", segment))
+    # Known inference profile prefixes are stripped from query model IDs, so
+    # they are not valid literal pricing model segments for this property.
+    assume(split_known_inference_profile_id(segment)[0] is None)
 
     return segment
 
@@ -166,9 +169,9 @@ def _base_model_id_strategy():
         # Also ensure it doesn't end with -v followed by digits (which would
         # be partially stripped by a suffix like :0)
         assume(not re.search(r"-v\d+$", base_id))
-        # Ensure it doesn't start with a geographic prefix that would be
-        # stripped by normalize_model_id (us., eu., ap., global.)
-        assume(not re.match(r"^(us|eu|ap|global)\.", base_id))
+        # Ensure it doesn't start with a known inference profile prefix that
+        # would be stripped by normalize_model_id.
+        assume(split_known_inference_profile_id(base_id)[0] is None)
         return base_id
 
     return strategy()

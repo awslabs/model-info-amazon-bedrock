@@ -4,22 +4,21 @@
 [![Supported Python Versions](https://img.shields.io/badge/dynamic/json?query=info.requires_python&label=python&url=https%3A%2F%2Fpypi.org%2Fpypi%2Fllmeter%2Fjson)](https://pypi.python.org/pypi/llmeter)
 [![Code Style: Ruff](https://img.shields.io/badge/code_style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-Model Info for Amazon Bedrock is a lightweight Python helper to simplify retrieving metadata about AI models on Amazon Bedrock.
+A lightweight Python helper to simplify retrieving metadata about AI models on [Amazon Bedrock](https://aws.amazon.com/bedrock/).
 
-This early release is focussed on mapping pricing information in particular, although we hope to expand to other metadata in future and contributions are welcome!
+This early release is focussed on fetching pricing information in particular, although we hope to expand to other metadata in future and contributions are welcome!
 
-> ⚠️ **WARNING:** This helper library is provided "as is", as described in the [LICENSE](LICENSE):
+> ⚠️ **WARNING:** This helper library is provided "as is", as described in the [LICENSE](LICENSE).
 >
-> 1. The price data mapping it performs is non-trivial and (despite our best efforts) may contain bugs.
-> 2. No warranty is provided or liability accepted for the correctness of summarized pricing data it provides.
->
-> For truly **authoritative** pricing information, refer to the underlying [AWS Price List API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html) and the [Amazon Bedrock Pricing page](https://aws.amazon.com/bedrock/pricing/).
+> - The data aggregations it performs are non-trivial and may contain bugs.
+> - No warranty is provided or liability accepted for the correctness of results.
+> - Users should validate against authoritative sources like the [Amazon Bedrock Pricing page](https://aws.amazon.com/bedrock/pricing/) and [Amazon Bedrock model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html) **before** using results for contractual, billing-critical, or other high-impact decisions.
 
-While the AWS Price List API provides authoritative pricing information, its listings for Amazon Bedrock are distributed across multiple service codes, and their attributes do not generally correspond exactly to unique model or inference profile IDs used by Amazon Bedrock inference APIs. This library implements matching logic to provide a simpler way to look up current pricing records by model ID. Callers should validate results before using them for contractual, billing-critical, or other high-impact decisions.
+Although the underlying [AWS Price List API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html) provides authoritative information, its listings for Amazon Bedrock are distributed across multiple service codes, and their attributes don't correspond directly to unique model or inference profile IDs used by Amazon Bedrock inference APIs. This library provides a simpler way to look up current pricing records by model ID.
 
 ## Installation
 
-Because this library uses the AWS Price List API, the environment where it runs needs [AWS credentials configured](https://docs.aws.amazon.com/boto3/latest/guide/credentials.html#guide-credentials) with appropriate [IAM permissions](https://docs.aws.amazon.com/service-authorization/latest/reference/list_awspricelist.html) to list services and products.
+Because this library uses the AWS Price List API, the environment where it runs needs [AWS credentials configured](https://docs.aws.amazon.com/boto3/latest/guide/credentials.html#guide-credentials) with appropriate [IAM permissions](https://docs.aws.amazon.com/service-authorization/latest/reference/list_pricing.html) to list services and products.
 
 Install on **Python 3.11+** with your preferred package manager. For example, with [uv](https://docs.astral.sh/uv/):
 
@@ -52,7 +51,7 @@ from model_info_amazon_bedrock import BedrockModelInfoClient
 client = BedrockModelInfoClient()
 
 pricing = client.get_model_pricing(
-    "anthropic.claude-sonnet-4-20250514-v1:0",
+    "global.anthropic.claude-sonnet-5",
     region="us-east-1",
 )
 
@@ -64,8 +63,8 @@ print(f"Output: ${pricing.output_tokens:.2f} per million tokens")
 Example output:
 
 ```text
-Input:  $3.00 per million tokens
-Output: $15.00 per million tokens
+Input:  $2.00 per million tokens
+Output: $10.00 per million tokens
 ```
 
 You can inspect all pricing dimensions matched and classified for the model:
@@ -95,9 +94,9 @@ for dim in pricing.dimensions:
 | `rate_code` | AWS Price List API rate code for traceability |
 | `source_service` | AWS service code from which the dimension was resolved |
 
-The convenience properties `input_tokens`, `output_tokens`, `input_images`, and `output_images` return the standard pricing value selected by the library, or `None` when that value is unavailable. Use `get_price` or `filter_dimensions` when you need a specific tier, scope, cache operation, modality, or context length.
+The convenience properties `input_tokens`, `output_tokens`, `input_images`, and `output_images` return the standard tier pricing, or `None` when that value couldn't be identified. Use `get_price` or `filter_dimensions` when you need a specific tier, scope, cache operation, modality, or context length.
 
-Matching and classification are heuristic. The returned dimensions reflect records the current resolver, mapper, and classifier recognize; they are not a guarantee that every AWS pricing dimension for every model is represented.
+Matching and classification are heuristic. The returned dimensions reflect AWS Price List records the library recognized for the requested model/profile; they are not a guarantee that every AWS pricing dimension for every model is represented.
 
 ### Caching
 
@@ -106,10 +105,10 @@ Pricing data is fetched lazily by source and cached per Region on each client in
 ```python
 client = BedrockModelInfoClient()
 
-# First lookup fetches the required AWS pricing source data.
+# First lookup fetches the required AWS pricing source data (so may take a few seconds)
 pricing = client.get_model_pricing("anthropic.claude-sonnet-4-20250514-v1:0")
 
-# Later lookups in the same Region reuse cached source data when possible.
+# Later lookups in the same Region reuse cached source data when possible (faster)
 pricing = client.get_model_pricing("meta.llama3-70b-instruct-v1:0")
 
 # Force fresh source data for this lookup.

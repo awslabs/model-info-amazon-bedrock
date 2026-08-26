@@ -10,6 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from ._inference_profile_ids import (
+    KNOWN_GEO_INFERENCE_PROFILE_PREFIXES,
+    KnownInferenceProfilePrefix,
+    split_known_inference_profile_id,
+)
+
 
 class Direction(Enum):
     """Whether tokens/images are going in or coming out."""
@@ -116,7 +122,7 @@ class ModelPricing:
     @property
     def input_images(self) -> float | None:
         """Standard on-demand price per input image, or None."""
-        return self._find_price(
+        return self.get_price(
             direction=Direction.INPUT,
             modality=Modality.IMAGE,
             cache=CacheOperation.NONE,
@@ -126,7 +132,7 @@ class ModelPricing:
     @property
     def output_images(self) -> float | None:
         """Standard on-demand price per output image, or None."""
-        return self._find_price(
+        return self.get_price(
             direction=Direction.OUTPUT,
             modality=Modality.IMAGE,
             cache=CacheOperation.NONE,
@@ -145,7 +151,10 @@ class ModelPricing:
     ) -> float | None:
         """Look up a specific price by its dimension axes.
 
-        If scope is None, prefers REGIONAL then CROSS_REGION_GLOBAL then GEO.
+        If scope is None, prefer the scope encoded by an inference profile ID:
+        global profiles prefer CROSS_REGION_GLOBAL, geographic profiles prefer
+        CROSS_REGION_GEO, and ordinary model IDs prefer REGIONAL. Other scopes
+        remain fallbacks for compatibility with incomplete source records.
         """
         if scope is not None:
             return self._find_price(
@@ -157,17 +166,33 @@ class ModelPricing:
                 context=context,
             )
 
-        for s in (
-            InferenceScope.REGIONAL,
-            InferenceScope.CROSS_REGION_GLOBAL,
-            InferenceScope.CROSS_REGION_GEO,
-        ):
+        profile_prefix, _ = split_known_inference_profile_id(self.model_id)
+        if profile_prefix == KnownInferenceProfilePrefix.GLOBAL:
+            scope_preference = (
+                InferenceScope.CROSS_REGION_GLOBAL,
+                InferenceScope.REGIONAL,
+                InferenceScope.CROSS_REGION_GEO,
+            )
+        elif profile_prefix in KNOWN_GEO_INFERENCE_PROFILE_PREFIXES:
+            scope_preference = (
+                InferenceScope.CROSS_REGION_GEO,
+                InferenceScope.REGIONAL,
+                InferenceScope.CROSS_REGION_GLOBAL,
+            )
+        else:
+            scope_preference = (
+                InferenceScope.REGIONAL,
+                InferenceScope.CROSS_REGION_GLOBAL,
+                InferenceScope.CROSS_REGION_GEO,
+            )
+
+        for inferred_scope in scope_preference:
             price = self._find_price(
                 direction=direction,
                 modality=modality,
                 cache=cache,
                 tier=tier,
-                scope=s,
+                scope=inferred_scope,
                 context=context,
             )
             if price is not None:

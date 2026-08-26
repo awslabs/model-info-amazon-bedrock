@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import re
 
+from .._inference_profile_ids import split_known_inference_profile_id
 from .aliases import MODEL_ID_TO_SEGMENTS
 from .types import ParsedUsagetype, UsagetypeEntry
 
 _VERSION_SUFFIX_RE = re.compile(r"(-v\d+)?:\d+$")
-_GEO_PREFIX_RE = re.compile(r"^(us|eu|ap|global)\.")
 _CONTEXT_SUFFIX_RE = re.compile(r":\d+[kKmM]?$|:mm$")
 
 # Structural regex that matches any valid inference suffix at the end of a
@@ -58,8 +58,8 @@ class UsagetypeMapper:
         - Geographic prefixes: removes leading 'us.', 'eu.', 'global.' etc.
           (cross-region inference profile IDs)
         """
-        # Strip geographic prefix from inference profile IDs.
-        normalized = _GEO_PREFIX_RE.sub("", model_id)
+        # Strip a recognized inference profile prefix from the model ID.
+        _, normalized = split_known_inference_profile_id(model_id)
         # Strip context-window suffix. Only applies when there are 2+ colons
         # (version:context pattern like "v1:0:24k" or "v3:0:512").
         if normalized.count(":") >= 2:

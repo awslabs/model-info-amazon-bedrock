@@ -12,6 +12,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .._inference_profile_ids import (
+    KnownInferenceProfilePrefix,
+    split_known_inference_profile_id,
+)
 from .aliases import MODEL_ID_TO_SERVICENAME
 from .types import MarketplaceEntry
 
@@ -54,7 +58,7 @@ class _ModelIdComponents:
 
     provider: str
     model_name: str  # Normalized: hyphens, no date, no version suffix
-    geo: str  # Geographic prefix (e.g. "us", "global") or ""
+    inference_profile_prefix: KnownInferenceProfilePrefix | None
     date: str  # 8-digit date suffix (e.g. "20250514") or ""
     version: str  # Version suffix (e.g. "1") or ""
     context: str  # Context length suffix (e.g. "24k") or ""
@@ -62,13 +66,17 @@ class _ModelIdComponents:
     @classmethod
     def parse(cls, model_id: str) -> _ModelIdComponents:
         """Parse a model ID into its components for matching."""
-        s = model_id.lower()
+        profile_prefix, model_id_without_prefix = split_known_inference_profile_id(
+            model_id
+        )
+        s = model_id_without_prefix.lower()
 
-        # Split on dots: geo.provider.model or provider.model or just model
-        sections = s.split(".")
-        model_name = sections[-1]
-        provider = sections[-2] if len(sections) >= 2 else ""
-        geo = sections[-3] if len(sections) >= 3 else ""
+        # A model ID starts with its provider; the remaining model name can
+        # itself contain dots, so split only once.
+        provider, separator, model_name = s.partition(".")
+        if not separator:
+            model_name = provider
+            provider = ""
 
         # Strip version/context suffix: -v1:0:24k or bare :0:24k
         version = ""
@@ -100,7 +108,7 @@ class _ModelIdComponents:
         return cls(
             provider=provider,
             model_name=model_name,
-            geo=geo,
+            inference_profile_prefix=profile_prefix,
             date=date,
             version=version,
             context=context,
